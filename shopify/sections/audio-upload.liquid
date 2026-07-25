@@ -1,0 +1,82 @@
+<div
+  id="ph-upload-widget"
+  data-api="{{ section.settings.api_url | escape }}"
+  data-required="{{ section.settings.require_before_cart }}"
+>
+  <p class="ph-label">{{ section.settings.label }}</p>
+
+  <div class="ph-drop-zone" id="ph-drop-zone" role="button" tabindex="0"
+       aria-label="{{ section.settings.label }}">
+    <input type="file" id="ph-file-input"
+           accept=".wav,.mp3,.mp4,.mov,.m4a,.3gp,.aac">
+    <div class="ph-icon">&#127908;</div>
+    <p>Drop file or <label for="ph-file-input" class="ph-browse">browse</label></p>
+    <p class="ph-formats">WAV &middot; MP3 &middot; MP4 &middot; MOV &middot; M4A &middot; AAC</p>
+  </div>
+
+  <div class="ph-progress" id="ph-progress" hidden>
+    <div class="ph-track"><div class="ph-fill" id="ph-progress-fill"></div></div>
+    <span class="ph-pct">Uploading&hellip;</span>
+  </div>
+
+  <p class="ph-success" id="ph-success" hidden>
+    &#10003; <span id="ph-filename"></span>
+  </p>
+
+  <p class="ph-error" id="ph-error" hidden></p>
+</div>
+
+<style>
+  #ph-upload-widget { margin: 1.5rem 0; }
+  .ph-label { font-size: .875rem; font-weight: 600; margin-bottom: .5rem; }
+  .ph-drop-zone {
+    border: 2px dashed currentColor; border-radius: 8px;
+    padding: 2rem 1rem; text-align: center; cursor: pointer;
+    opacity: .65; transition: opacity .2s;
+  }
+  .ph-drop-zone:hover, .ph-drop-zone.drag-over { opacity: 1; }
+  #ph-file-input { display: none; }
+  .ph-browse { cursor: pointer; text-decoration: underline; }
+  .ph-icon { font-size: 2rem; margin-bottom: .4rem; }
+  .ph-formats { font-size: .7rem; opacity: .6; margin-top: .2rem; }
+  .ph-progress { margin-top: .75rem; }
+  .ph-track { background: rgba(0,0,0,.12); border-radius: 4px; height: 6px; overflow: hidden; }
+  .ph-fill { height: 100%; background: currentColor; width: 0%; transition: width .15s; }
+  .ph-pct { font-size: .75rem; opacity: .65; }
+  .ph-success { margin-top: .6rem; font-size: .875rem; color: #2e7d32; }
+  .ph-error   { margin-top: .6rem; font-size: .875rem; color: #c62828; }
+</style>
+
+{{ 'audio-upload.js' | asset_url | script_tag }}
+
+{% schema %}
+{
+  "name": "Audio Upload",
+  "settings": [
+    {
+      "type": "text",
+      "id": "api_url",
+      "label": "API upload URL",
+      "info": "Your deployed API endpoint, e.g. https://pulse-api.railway.app/upload",
+      "default": ""
+    },
+    {
+      "type": "text",
+      "id": "label",
+      "label": "Widget label",
+      "default": "Upload your doppler recording"
+    },
+    {
+      "type": "checkbox",
+      "id": "require_before_cart",
+      "label": "Require upload before adding to cart",
+      "default": true
+    }
+  ],
+  "presets": [
+    {
+      "name": "Audio Upload"
+    }
+  ]
+}
+{% endschema %}

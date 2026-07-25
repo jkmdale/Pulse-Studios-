@@ -5,9 +5,12 @@ import json
 import logging
 import os
 import tempfile
+import uuid
+from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
 import audio_processor
@@ -22,10 +25,22 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 log = logging.getLogger("pulse")
 
 SHOPIFY_WEBHOOK_SECRET = os.getenv("SHOPIFY_WEBHOOK_SECRET", "")
+SHOPIFY_STORE_URL = os.getenv("SHOPIFY_STORE_URL", "")
 BASE_URL = os.getenv("BASE_URL", "https://pulseheirloom.com")
 HAPTIC_PAGE = os.path.join(os.path.dirname(__file__), "web", "haptic", "index.html")
 
+ALLOWED_UPLOAD_EXTS = {".wav", ".mp3", ".mp4", ".mov", ".m4a", ".3gp", ".aac"}
+
 app = FastAPI(title="Pulse & Heirloom Studios API")
+
+# Allow the Shopify storefront to POST to /upload from the browser
+_cors_origins = [SHOPIFY_STORE_URL] if SHOPIFY_STORE_URL else ["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_methods=["POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 # ---------------------------------------------------------------------------
@@ -95,6 +110,36 @@ async def order_data(order_id: str):
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Pre-order audio upload (called from the Shopify product page widget)
+# ---------------------------------------------------------------------------
+
+@app.post("/upload")
+async def upload_audio(file: UploadFile = File(...)):
+    """
+    Accept a customer's doppler recording before order placement.
+    Stores it in S3 under uploads/{uuid}.{ext} and returns a presigned URL
+    that gets attached to the Shopify order as a line item property.
+    """
+    ext = Path(file.filename).suffix.lower() if file.filename else ""
+    if ext not in ALLOWED_UPLOAD_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(sorted(ALLOWED_UPLOAD_EXTS))}",
+        )
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    s3_key = f"uploads/{uuid.uuid4()}{ext}"
+    s3_handler.upload_bytes(content, s3_key)
+    presigned_url = s3_handler.get_presigned_url(s3_key, expiry=86400 * 7)
+
+    log.info("Pre-upload stored: %s (%d bytes)", s3_key, len(content))
+    return {"url": presigned_url}
 
 
 # ---------------------------------------------------------------------------

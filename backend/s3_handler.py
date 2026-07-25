@@ -64,6 +64,12 @@ def key_exists(s3_key: str) -> bool:
         return False
 
 
+def upload_bytes(data: bytes, s3_key: str, content_type: str = "application/octet-stream") -> str:
+    """Upload raw bytes to S3 (used by the /upload endpoint for browser-submitted files)."""
+    _s3.put_object(Bucket=BUCKET, Key=s3_key, Body=data, ContentType=content_type)
+    return s3_key
+
+
 def infer_s3_key(order_id: str, remote_url: str) -> str:
     """Derive S3 key from remote URL extension."""
     ext = remote_url.rsplit(".", 1)[-1].lower().split("?")[0]
