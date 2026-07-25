@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f5e6d8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Feel Your Baby's Heartbeat — Pulse & Heirloom Studios</title>
+  <style>
+    :root {
+      --cream: #f5e6d8;
+      --blush: #d29b87;
+      --navy: #2c3e50;
+      --gold: #c9a84c;
+      --pulse-duration: 500ms;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--cream);
+      color: var(--navy);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2rem 1.5rem;
+      text-align: center;
+    }
+
+    header { width: 100%; }
+
+    .brand {
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--blush);
+      margin-bottom: 0.4rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 300;
+      line-height: 1.3;
+      color: var(--navy);
+    }
+
+    h1 span { font-weight: 600; }
+
+    .rule {
+      width: 4rem;
+      height: 2px;
+      background: var(--gold);
+      margin: 1rem auto;
+    }
+
+    #waveform {
+      width: 100%;
+      max-width: 360px;
+      height: 180px;
+      margin: 0 auto;
+      display: block;
+    }
+
+    .heart-container {
+      margin: 1.5rem 0 0.5rem;
+      height: 4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #heart {
+      font-size: 3rem;
+      color: var(--blush);
+      display: inline-block;
+      transform-origin: center;
+    }
+
+    #heart.pulsing {
+      animation: heartbeat var(--pulse-duration) ease-in-out infinite;
+    }
+
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); }
+      30%  { transform: scale(1.25); }
+      50%  { transform: scale(1.05); }
+      70%  { transform: scale(1.2); }
+    }
+
+    #bpm-display {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--navy);
+      letter-spacing: 0.05em;
+    }
+
+    #bpm-label {
+      font-size: 0.75rem;
+      color: var(--blush);
+      margin-top: 0.2rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    #play-btn {
+      margin-top: 1.5rem;
+      padding: 1rem 2.5rem;
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      background: var(--navy);
+      color: var(--cream);
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #play-btn:active  { transform: scale(0.96); opacity: 0.85; }
+    #play-btn.playing { background: var(--blush); }
+
+    #vibration-note {
+      font-size: 0.75rem;
+      color: var(--blush);
+      margin-top: 0.6rem;
+    }
+
+    .demo-badge {
+      position: fixed;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: var(--gold);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+    }
+
+    /* BPM slider (demo only) */
+    .demo-controls {
+      margin-top: 1.5rem;
+      width: 100%;
+      max-width: 280px;
+    }
+
+    .demo-controls label {
+      font-size: 0.75rem;
+      color: var(--blush);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 0.4rem;
+    }
+
+    .demo-controls input[type=range] {
+      width: 100%;
+      accent-color: var(--blush);
+    }
+
+    footer {
+      font-size: 0.65rem;
+      color: var(--blush);
+      opacity: 0.7;
+      margin-top: 1rem;
+    }
+
+    audio { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="demo-badge">Demo Mode</div>
+
+  <header>
+    <p class="brand">Pulse &amp; Heirloom Studios</p>
+    <h1>Feel <span>Baby Emma</span>'s<br>Heartbeat</h1>
+    <div class="rule"></div>
+  </header>
+
+  <main>
+    <canvas id="waveform" width="360" height="180" aria-label="Heartbeat waveform"></canvas>
+
+    <div class="heart-container">
+      <span id="heart" aria-hidden="true">&#9829;</span>
+    </div>
+
+    <p id="bpm-display">147 BPM</p>
+    <p id="bpm-label">Beats per minute</p>
+
+    <button id="play-btn">Tap to Begin</button>
+    <p id="vibration-note"></p>
+
+    <!-- Demo controls -->
+    <div class="demo-controls">
+      <label>Simulate BPM: <span id="bpm-val">147</span></label>
+      <input type="range" id="bpm-slider" min="110" max="180" value="147">
+    </div>
+
+    <!-- No real audio in demo — oscillator plays a tone instead -->
+    <audio id="lullaby-audio" preload="none"></audio>
+  </main>
+
+  <footer>
+    &copy; Pulse &amp; Heirloom Studios &mdash; pulseheirloom.com
+  </footer>
+
+  <script>
+    // ─── Demo data (replaces the /api/order/{id} fetch) ──────────────────────
+    const DEMO_BPM = 147;
+
+    // Generate synthetic waveform peaks (mimics librosa RMS output)
+    function generateDemoPeaks(n = 500) {
+      const peaks = [];
+      for (let i = 0; i < n; i++) {
+        const t = i / n;
+        const base = 0.3 + 0.5 * Math.abs(Math.sin(Math.PI * t * 8));
+        const noise = (Math.random() - 0.5) * 0.15;
+        peaks.push(Math.max(0.05, Math.min(1, base + noise)));
+      }
+      return peaks;
+    }
+
+    const peaks = generateDemoPeaks();
+
+    // ─── Haptic / visual pulse ────────────────────────────────────────────────
+    const canVibrate = 'vibrate' in navigator;
+    let vibrationTimer = null;
+    let audioCtx = null;
+    let oscillatorNode = null;
+    let gainNode = null;
+
+    if (canVibrate) {
+      document.getElementById('vibration-note').textContent =
+        "Hold your phone — you'll feel the heartbeat vibrate.";
+    }
+
+    function startHapticPattern(bpm) {
+      const intervalMs = Math.round(60000 / bpm);
+      const pulseWidth = Math.min(120, Math.round(intervalMs * 0.3));
+
+      if (canVibrate) {
+        const pulse = () => navigator.vibrate([pulseWidth, intervalMs - pulseWidth]);
+        pulse();
+        vibrationTimer = setInterval(pulse, intervalMs);
+      } else {
+        const heart = document.getElementById('heart');
+        document.documentElement.style.setProperty('--pulse-duration', `${intervalMs}ms`);
+        heart.classList.add('pulsing');
+      }
+    }
+
+    function stopHapticPattern() {
+      if (vibrationTimer !== null) { clearInterval(vibrationTimer); vibrationTimer = null; }
+      if (canVibrate) navigator.vibrate(0);
+      document.getElementById('heart').classList.remove('pulsing');
+    }
+
+    // ─── Demo tone (Web Audio — no MP3 file needed) ───────────────────────────
+    function startDemoTone(bpm) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      gainNode = audioCtx.createGain();
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gainNode.connect(audioCtx.destination);
+
+      oscillatorNode = audioCtx.createOscillator();
+      oscillatorNode.type = 'sine';
+      oscillatorNode.frequency.setValueAtTime(261.63, audioCtx.currentTime); // C4
+      oscillatorNode.connect(gainNode);
+      oscillatorNode.start();
+    }
+
+    function stopDemoTone() {
+      if (oscillatorNode) { oscillatorNode.stop(); oscillatorNode = null; }
+      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+    }
+
+    // ─── Waveform canvas ──────────────────────────────────────────────────────
+    let animFrameId = null;
+    let scrollOffset = 0;
+
+    function initWaveform(peaksData) {
+      const canvas = document.getElementById('waveform');
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width  = canvas.offsetWidth  * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+
+      const W = canvas.offsetWidth;
+      const H = canvas.offsetHeight;
+      const n = peaksData.length;
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        scrollOffset = (scrollOffset + 1) % n;
+
+        const midY  = H / 2;
+        const maxAmp = midY * 0.85;
+
+        ctx.beginPath();
+        for (let i = 0; i < n; i++) {
+          const idx = (i + scrollOffset) % n;
+          const x = (i / (n - 1)) * W;
+          const y = midY - peaksData[idx] * maxAmp;
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        for (let i = n - 1; i >= 0; i--) {
+          const idx = (i + scrollOffset) % n;
+          const x = (i / (n - 1)) * W;
+          const y = midY + peaksData[idx] * maxAmp;
+          ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+
+        const grad = ctx.createLinearGradient(0, 0, W, 0);
+        grad.addColorStop(0,   'rgba(210,155,135,0.5)');
+        grad.addColorStop(0.5, 'rgba(210,155,135,1.0)');
+        grad.addColorStop(1,   'rgba(210,155,135,0.5)');
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        animFrameId = requestAnimationFrame(draw);
+      }
+
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      draw();
+    }
+
+    // ─── Play button ──────────────────────────────────────────────────────────
+    let playing = false;
+    let currentBpm = DEMO_BPM;
+
+    const playBtn = document.getElementById('play-btn');
+
+    playBtn.addEventListener('click', () => {
+      if (!playing) {
+        playing = true;
+        playBtn.textContent = 'Playing…';
+        playBtn.classList.add('playing');
+        startHapticPattern(currentBpm);
+        startDemoTone(currentBpm);
+        initWaveform(peaks);
+      } else {
+        playing = false;
+        playBtn.textContent = 'Tap to Begin';
+        playBtn.classList.remove('playing');
+        stopHapticPattern();
+        stopDemoTone();
+        if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+      }
+    });
+
+    // ─── BPM slider (demo only) ───────────────────────────────────────────────
+    const slider = document.getElementById('bpm-slider');
+    const bpmVal = document.getElementById('bpm-val');
+    const bpmDisplay = document.getElementById('bpm-display');
+
+    slider.addEventListener('input', () => {
+      currentBpm = parseInt(slider.value);
+      bpmVal.textContent = currentBpm;
+      bpmDisplay.textContent = `${currentBpm} BPM`;
+
+      if (playing) {
+        stopHapticPattern();
+        startHapticPattern(currentBpm);
+      }
+    });
+
+    // Draw waveform on load so the page isn't empty
+    initWaveform(peaks);
+  </script>
+</body>
+</html>
