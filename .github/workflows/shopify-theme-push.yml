@@ -11,68 +11,29 @@ on:
 jobs:
   push:
     runs-on: ubuntu-latest
-    env:
-      STORE: pulse-heirloom-studios.myshopify.com
-      TOKEN: ${{ github.event.inputs.theme_password }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get active theme ID
-        id: theme
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Shopify CLI
+        run: npm install -g @shopify/cli@latest
+
+      - name: Push theme files to live theme
+        working-directory: shopify
+        env:
+          SHOPIFY_CLI_THEME_TOKEN: ${{ github.event.inputs.theme_password }}
+          SHOPIFY_CLI_NO_ANALYTICS: "1"
+          SHOPIFY_CLI_PARTNERS_TOKEN: ""
         run: |
-          HTTP_STATUS=$(curl -s \
-            -o /tmp/themes.json \
-            -w "%{http_code}" \
-            -H "X-Shopify-Access-Token: $TOKEN" \
-            "https://$STORE/admin/api/2024-01/themes.json")
-
-          echo "HTTP status: $HTTP_STATUS"
-          echo "Response body:"
-          cat /tmp/themes.json | head -c 1000
-
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "ERROR: HTTP $HTTP_STATUS from Shopify API" >&2
-            exit 1
-          fi
-
-          # Try main theme first, then fall back to the first available theme
-          THEME_ID=$(jq -r '[.themes[] | select(.role == "main")] | first | .id' /tmp/themes.json)
-
-          if [ -z "$THEME_ID" ] || [ "$THEME_ID" = "null" ]; then
-            echo "No 'main' role theme found. Available themes:"
-            jq '.themes[] | {id, name, role}' /tmp/themes.json
-            THEME_ID=$(jq -r '.themes | first | .id' /tmp/themes.json)
-          fi
-
-          if [ -z "$THEME_ID" ] || [ "$THEME_ID" = "null" ]; then
-            echo "ERROR: could not find any theme" >&2
-            exit 1
-          fi
-
-          echo "id=$THEME_ID" >> "$GITHUB_OUTPUT"
-          echo "Active theme ID: $THEME_ID"
-
-      - name: Upload sections/audio-upload.liquid
-        run: |
-          jq -n --rawfile v shopify/sections/audio-upload.liquid \
-            '{"asset":{"key":"sections/audio-upload.liquid","value":$v}}' \
-            > /tmp/section.json
-          curl -sf -X PUT \
-            -H "X-Shopify-Access-Token: $TOKEN" \
-            -H "Content-Type: application/json" \
-            "https://$STORE/admin/api/2024-01/themes/${{ steps.theme.outputs.id }}/assets.json" \
-            -d @/tmp/section.json | jq '.asset.key'
-
-      - name: Upload assets/audio-upload.js
-        run: |
-          jq -n --rawfile v shopify/assets/audio-upload.js \
-            '{"asset":{"key":"assets/audio-upload.js","value":$v}}' \
-            > /tmp/asset.json
-          curl -sf -X PUT \
-            -H "X-Shopify-Access-Token: $TOKEN" \
-            -H "Content-Type: application/json" \
-            "https://$STORE/admin/api/2024-01/themes/${{ steps.theme.outputs.id }}/assets.json" \
-            -d @/tmp/asset.json | jq '.asset.key'
+          shopify theme push \
+            --store pulse-heirloom-studios.myshopify.com \
+            --live \
+            --only "sections/audio-upload.liquid" \
+            --only "assets/audio-upload.js" \
+            --force
 
       - name: Done
-        run: echo "Both files pushed to theme ${{ steps.theme.outputs.id }}"
+        run: echo "Both files pushed to live theme"
