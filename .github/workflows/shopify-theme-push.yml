@@ -1,0 +1,56 @@
+name: Push Audio Upload Widget to Shopify Theme
+
+on:
+  workflow_dispatch:
+    inputs:
+      theme_password:
+        description: 'Shopify Theme Access password (shptka_...)'
+        required: true
+        type: string
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    env:
+      STORE: pulse-heirloom-studios.myshopify.com
+      TOKEN: ${{ github.event.inputs.theme_password }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get active theme ID
+        id: theme
+        run: |
+          THEME_ID=$(curl -sf \
+            -H "X-Shopify-Access-Token: $TOKEN" \
+            "https://$STORE/admin/api/2024-01/themes.json" \
+            | jq -r '[.themes[] | select(.role == "main")] | first | .id')
+          if [ -z "$THEME_ID" ] || [ "$THEME_ID" = "null" ]; then
+            echo "ERROR: could not find active theme" >&2; exit 1
+          fi
+          echo "id=$THEME_ID" >> "$GITHUB_OUTPUT"
+          echo "Active theme ID: $THEME_ID"
+
+      - name: Upload sections/audio-upload.liquid
+        run: |
+          jq -n --rawfile v shopify/sections/audio-upload.liquid \
+            '{"asset":{"key":"sections/audio-upload.liquid","value":$v}}' \
+            > /tmp/section.json
+          curl -sf -X PUT \
+            -H "X-Shopify-Access-Token: $TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://$STORE/admin/api/2024-01/themes/${{ steps.theme.outputs.id }}/assets.json" \
+            -d @/tmp/section.json | jq '.asset.key'
+
+      - name: Upload assets/audio-upload.js
+        run: |
+          jq -n --rawfile v shopify/assets/audio-upload.js \
+            '{"asset":{"key":"assets/audio-upload.js","value":$v}}' \
+            > /tmp/asset.json
+          curl -sf -X PUT \
+            -H "X-Shopify-Access-Token: $TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://$STORE/admin/api/2024-01/themes/${{ steps.theme.outputs.id }}/assets.json" \
+            -d @/tmp/asset.json | jq '.asset.key'
+
+      - name: Done
+        run: echo "Both files pushed to theme ${{ steps.theme.outputs.id }}"
