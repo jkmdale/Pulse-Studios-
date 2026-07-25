@@ -8,7 +8,16 @@ import soundfile as sf
 from pydub import AudioSegment
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets")
-LULLABY_TEMPLATE = os.path.join(ASSETS_DIR, "lullaby_template.mp3")
+
+def _find_template() -> str:
+    """Return path to lullaby template — supports .mp3 or .wav."""
+    for ext in ("lullaby_template.mp3", "lullaby_template.wav"):
+        p = os.path.join(ASSETS_DIR, ext)
+        if os.path.exists(p):
+            return p
+    return os.path.join(ASSETS_DIR, "lullaby_template.mp3")  # trigger missing-file fallback
+
+LULLABY_TEMPLATE = _find_template()
 HEARTBEAT_ATTENUATION_DB = -15
 OUTPUT_BITRATE = "192k"
 MIN_OUTPUT_DURATION_MS = 120_000  # 2 minutes minimum
