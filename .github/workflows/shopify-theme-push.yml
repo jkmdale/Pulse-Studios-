@@ -1,12 +1,15 @@
 name: Push Audio Upload Widget to Shopify Theme
 
+# Requires SHOPIFY_ADMIN_API_TOKEN repository secret.
+# One-time setup:
+#   1. Shopify Admin → Apps → App Development → Create an app
+#   2. Configure Admin API scopes: write_themes, read_themes → Save
+#   3. API credentials tab → Install app → copy the Admin API access token (shpat_...)
+#   4. GitHub repo → Settings → Secrets and variables → Actions → New repository secret
+#      Name: SHOPIFY_ADMIN_API_TOKEN   Value: shpat_...
+
 on:
   workflow_dispatch:
-    inputs:
-      theme_password:
-        description: 'Shopify Theme Access password (shptka_...)'
-        required: true
-        type: string
 
 jobs:
   push:
@@ -14,26 +17,90 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install Shopify CLI
-        run: npm install -g @shopify/cli@latest
-
-      - name: Push theme files to live theme
-        working-directory: shopify
+      - name: Get live theme ID
+        id: theme
         env:
-          SHOPIFY_CLI_THEME_TOKEN: ${{ github.event.inputs.theme_password }}
-          SHOPIFY_CLI_NO_ANALYTICS: "1"
-          SHOPIFY_CLI_PARTNERS_TOKEN: ""
+          TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}
         run: |
-          shopify theme push \
-            --store pulse-heirloom-studios.myshopify.com \
-            --live \
-            --only "sections/audio-upload.liquid" \
-            --only "assets/audio-upload.js" \
-            --force
+          if [ -z "$TOKEN" ]; then
+            echo "SHOPIFY_ADMIN_API_TOKEN secret not set."
+            echo "See workflow comments for one-time setup instructions."
+            exit 1
+          fi
+
+          HTTP_STATUS=$(curl -s -o /tmp/themes.json -w "%{http_code}" \
+            -H "X-Shopify-Access-Token: $TOKEN" \
+            "https://pulse-heirloom-studios.myshopify.com/admin/api/2024-01/themes.json")
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Shopify API returned HTTP $HTTP_STATUS:"
+            cat /tmp/themes.json
+            exit 1
+          fi
+
+          THEME_ID=$(python3 - <<'PYEOF'
+import json, sys
+data = json.load(open('/tmp/themes.json'))
+themes = data['themes']
+for t in themes:
+    print(f'  {t["name"]} | role={t["role"]} | id={t["id"]}', file=sys.stderr)
+live = [t for t in themes if t['role'] == 'main']
+chosen = live[0] if live else themes[0]
+print(f'Selected: {chosen["name"]} (id={chosen["id"]})', file=sys.stderr)
+print(chosen['id'])
+PYEOF
+)
+          echo "id=$THEME_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Upload sections/audio-upload.liquid
+        env:
+          TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}
+          THEME_ID: ${{ steps.theme.outputs.id }}
+        run: |
+          python3 -c "
+import json
+content = open('shopify/sections/audio-upload.liquid').read()
+print(json.dumps({'asset': {'key': 'sections/audio-upload.liquid', 'value': content}}))
+" > /tmp/payload.json
+
+          HTTP_STATUS=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            -X PUT \
+            -H "X-Shopify-Access-Token: $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/payload.json \
+            "https://pulse-heirloom-studios.myshopify.com/admin/api/2024-01/themes/$THEME_ID/assets.json")
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Upload failed (HTTP $HTTP_STATUS):"
+            cat /tmp/resp.json
+            exit 1
+          fi
+          echo "sections/audio-upload.liquid uploaded"
+
+      - name: Upload assets/audio-upload.js
+        env:
+          TOKEN: ${{ secrets.SHOPIFY_ADMIN_API_TOKEN }}
+          THEME_ID: ${{ steps.theme.outputs.id }}
+        run: |
+          python3 -c "
+import json
+content = open('shopify/assets/audio-upload.js').read()
+print(json.dumps({'asset': {'key': 'assets/audio-upload.js', 'value': content}}))
+" > /tmp/payload.json
+
+          HTTP_STATUS=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            -X PUT \
+            -H "X-Shopify-Access-Token: $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/payload.json \
+            "https://pulse-heirloom-studios.myshopify.com/admin/api/2024-01/themes/$THEME_ID/assets.json")
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Upload failed (HTTP $HTTP_STATUS):"
+            cat /tmp/resp.json
+            exit 1
+          fi
+          echo "assets/audio-upload.js uploaded"
 
       - name: Done
-        run: echo "Both files pushed to live theme"
+        run: echo "Both files pushed to live Shopify theme"
