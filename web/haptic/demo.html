@@ -232,9 +232,6 @@
     // ─── Haptic / visual pulse ────────────────────────────────────────────────
     const canVibrate = 'vibrate' in navigator;
     let vibrationTimer = null;
-    let audioCtx = null;
-    let oscillatorNode = null;
-    let gainNode = null;
 
     if (canVibrate) {
       document.getElementById('vibration-note').textContent =
@@ -262,23 +259,18 @@
       document.getElementById('heart').classList.remove('pulsing');
     }
 
-    // ─── Demo tone (Web Audio — no MP3 file needed) ───────────────────────────
-    function startDemoTone(bpm) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      gainNode = audioCtx.createGain();
-      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
-      gainNode.connect(audioCtx.destination);
+    // ─── Lullaby audio ────────────────────────────────────────────────────────
+    const lullabyAudio = document.getElementById('lullaby-audio');
+    lullabyAudio.src = 'lullaby_template.mp3';
+    lullabyAudio.loop = true;
 
-      oscillatorNode = audioCtx.createOscillator();
-      oscillatorNode.type = 'sine';
-      oscillatorNode.frequency.setValueAtTime(261.63, audioCtx.currentTime); // C4
-      oscillatorNode.connect(gainNode);
-      oscillatorNode.start();
+    function startDemoTone() {
+      lullabyAudio.play().catch(() => {});
     }
 
     function stopDemoTone() {
-      if (oscillatorNode) { oscillatorNode.stop(); oscillatorNode = null; }
-      if (audioCtx) { audioCtx.close(); audioCtx = null; }
+      lullabyAudio.pause();
+      lullabyAudio.currentTime = 0;
     }
 
     // ─── Waveform canvas ──────────────────────────────────────────────────────
@@ -345,7 +337,7 @@
         playBtn.textContent = 'Playing…';
         playBtn.classList.add('playing');
         startHapticPattern(currentBpm);
-        startDemoTone(currentBpm);
+        startDemoTone();
         initWaveform(peaks);
       } else {
         playing = false;

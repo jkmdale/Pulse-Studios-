@@ -32,6 +32,9 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      - name: Copy lullaby template into site
+        run: cp assets/lullaby_template.mp3 web/haptic/lullaby_template.mp3
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
