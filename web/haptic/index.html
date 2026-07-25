@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f5e6d8">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Feel Your Baby's Heartbeat — Pulse & Heirloom Studios</title>
+  <style>
+    :root {
+      --cream: #f5e6d8;
+      --blush: #d29b87;
+      --navy: #2c3e50;
+      --gold: #c9a84c;
+      --pulse-duration: 500ms;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--cream);
+      color: var(--navy);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 2rem 1.5rem;
+      text-align: center;
+    }
+
+    header { width: 100%; }
+
+    .brand {
+      font-size: 0.75rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--blush);
+      margin-bottom: 0.4rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 300;
+      line-height: 1.3;
+      color: var(--navy);
+    }
+
+    h1 span { font-weight: 600; }
+
+    .rule {
+      width: 4rem;
+      height: 2px;
+      background: var(--gold);
+      margin: 1rem auto;
+    }
+
+    /* Waveform canvas */
+    #waveform {
+      width: 100%;
+      max-width: 360px;
+      height: 180px;
+      margin: 0 auto;
+      display: block;
+    }
+
+    /* Heart icon with CSS pulse fallback for iOS */
+    .heart-container {
+      margin: 1.5rem 0 0.5rem;
+      height: 4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #heart {
+      font-size: 3rem;
+      color: var(--blush);
+      display: inline-block;
+      transform-origin: center;
+    }
+
+    #heart.pulsing {
+      animation: heartbeat var(--pulse-duration) ease-in-out infinite;
+    }
+
+    @keyframes heartbeat {
+      0%, 100% { transform: scale(1); }
+      30% { transform: scale(1.25); }
+      50% { transform: scale(1.05); }
+      70% { transform: scale(1.2); }
+    }
+
+    /* BPM badge */
+    #bpm-display {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--navy);
+      letter-spacing: 0.05em;
+    }
+
+    #bpm-label {
+      font-size: 0.75rem;
+      color: var(--blush);
+      margin-top: 0.2rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    /* Play button */
+    #play-btn {
+      margin-top: 1.5rem;
+      padding: 1rem 2.5rem;
+      font-size: 1rem;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      background: var(--navy);
+      color: var(--cream);
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #play-btn:active { transform: scale(0.96); opacity: 0.85; }
+    #play-btn:disabled { opacity: 0.4; cursor: default; }
+    #play-btn.playing { background: var(--blush); }
+
+    /* Vibration note (shown on Android) */
+    #vibration-note {
+      font-size: 0.75rem;
+      color: var(--blush);
+      margin-top: 0.6rem;
+    }
+
+    /* Error / loading states */
+    #status-msg {
+      font-size: 0.9rem;
+      color: var(--blush);
+      min-height: 1.5rem;
+    }
+
+    footer {
+      font-size: 0.65rem;
+      color: var(--blush);
+      opacity: 0.7;
+      margin-top: 1rem;
+    }
+
+    audio { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="brand">Pulse &amp; Heirloom Studios</p>
+    <h1>Feel <span id="baby-name-heading">Your Baby</span>'s<br>Heartbeat</h1>
+    <div class="rule"></div>
+  </header>
+
+  <main>
+    <p id="status-msg">Loading your heartbeat&hellip;</p>
+
+    <canvas id="waveform" width="360" height="180" aria-label="Heartbeat waveform visualization"></canvas>
+
+    <div class="heart-container">
+      <span id="heart" aria-hidden="true">&#9829;</span>
+    </div>
+
+    <p id="bpm-display">&mdash;</p>
+    <p id="bpm-label">Beats per minute</p>
+
+    <button id="play-btn" disabled>Tap to Begin</button>
+    <p id="vibration-note"></p>
+
+    <audio id="lullaby-audio" preload="none"></audio>
+  </main>
+
+  <footer>
+    &copy; Pulse &amp; Heirloom Studios &mdash; pulseheirloom.com
+  </footer>
+
+  <script src="assets/waveform.js"></script>
+  <script>
+    (function () {
+      const orderId = window.location.pathname.split('/').filter(Boolean).pop();
+      const audio = document.getElementById('lullaby-audio');
+      const playBtn = document.getElementById('play-btn');
+      const statusMsg = document.getElementById('status-msg');
+      const bpmDisplay = document.getElementById('bpm-display');
+      const babyName = document.getElementById('baby-name-heading');
+      const vibNote = document.getElementById('vibration-note');
+
+      // Show vibration note on Android
+      if (canVibrate) {
+        vibNote.textContent = 'Hold your phone — you\'ll feel the heartbeat vibrate.';
+      }
+
+      // Resize canvas to device pixel ratio for sharp rendering
+      (function resizeCanvas() {
+        const canvas = document.getElementById('waveform');
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+      })();
+
+      loadOrderData(orderId)
+        .then(function (data) {
+          statusMsg.textContent = '';
+          bpmDisplay.textContent = Math.round(data.bpm) + ' BPM';
+
+          if (data.customer_name) {
+            // Haptic page is for the parent — show baby name if available
+          }
+
+          audio.src = data.mp3_url;
+          audio.load();
+
+          initWaveform(data.peaks);
+          playBtn.disabled = false;
+
+          playBtn.addEventListener('click', function () {
+            if (audio.paused) {
+              audio.play().catch(function (err) {
+                statusMsg.textContent = 'Tap again to play audio.';
+              });
+              playBtn.textContent = 'Playing…';
+              playBtn.classList.add('playing');
+              startHapticPattern(data.bpm);
+            } else {
+              audio.pause();
+              playBtn.textContent = 'Tap to Resume';
+              playBtn.classList.remove('playing');
+              stopHapticPattern();
+            }
+          });
+
+          audio.addEventListener('ended', function () {
+            playBtn.textContent = 'Play Again';
+            playBtn.classList.remove('playing');
+            stopHapticPattern();
+          });
+        })
+        .catch(function (err) {
+          statusMsg.textContent = 'Your heirloom is still being crafted — check back shortly.';
+          console.error(err);
+        });
+    })();
+  </script>
+</body>
+</html>
